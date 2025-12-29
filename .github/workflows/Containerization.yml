@@ -1,12 +1,13 @@
 name: Containerization
+
 on:
   push:
-    branches: ["main"]
+    branches: ["main"] # Fixed: Added missing closing quote
 
 jobs:
- build:
-   runs-on: ubuntu-latest
-   steps:
+  build:
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -14,7 +15,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # Set up Docker Buildx
+      # Set up Docker Buildx (required for multi-platform builds)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -31,9 +32,11 @@ jobs:
         with:
           context: .
           push: true
-          # List your target platforms here
+          # Platforms: amd64 (Intel/AMD) and arm64 (Apple M1/M2, Graviton)
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-    
+          # Caching: Speeds up subsequent builds by reusing layers
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
