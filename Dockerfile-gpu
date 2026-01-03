@@ -1,82 +1,52 @@
-ARG BASE_IMAGE
-
-FROM ${BASE_IMAGE}
-ARG TARGET
+# ------------------------------
+# C++ scientific env: CUDA + Boost 1.68 + xtensor + MPI + HDF5 + FFTW + BLAS
+# ------------------------------
+# Using nvidia/cuda as base instead of ubuntu:22.04
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CORES=4
-LABEL maintainer="ccardina@caltech.edu"
 
+LABEL maintainer="caroline@example.com"
 WORKDIR /workspace
 
-RUN if [ "$TARGET" = "cpu" ] ; then \
-        apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        wget \
-        curl \
-        git \
-        cmake \
-        ninja-build \
-        pkg-config \
-        python3 \
-        python3-pip \
-        autoconf \
-        automake \
-        libtool \
-        gfortran \
-        vim \
-        # MPI
-        openmpi-bin \
-        libopenmpi-dev \
-        # FFTW
-        libfftw3-dev \
-        libfftw3-mpi-dev \
-        # HDF5 with MPI
-        # libhdf5-openmpi-dev \
-        # BLAS/LAPACK
-        libblas-dev \
-        liblapack-dev \
-        libopenblas-dev \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* ; \
-    elif [ "$TARGET" = "gpu" ] ; then \
-        apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        wget \
-        curl \
-        git \
-        cmake \
-        ninja-build \
-        pkg-config \
-        python3 \
-        python3-pip \
-        autoconf \
-        automake \
-        libtool \
-        gfortran \
-        vim \
-        sudo \
-        # CUDA Math Libraries (standard for scientific computing)
-        libcublas-dev-12-1 \
-        libcufft-dev-12-1 \
-        libcurand-dev-12-1 \
-        libcusolver-dev-12-1 \
-        libcusparse-dev-12-1 \
-        # MPI
-        openmpi-bin \
-        libopenmpi-dev \
-        # FFTW
-        libfftw3-dev \
-        libfftw3-mpi-dev \
-        # BLAS/LAPACK
-        libblas-dev \
-        liblapack-dev \
-        libopenblas-dev \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* ; \
-    else \
-        echo "TARGET must be 'cpu' or 'gpu'" ; exit 1 ; \
-    fi
+# ------------------------------
+# System packages & CUDA Math Libraries
+# ------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    wget \
+    curl \
+    git \
+    cmake \
+    ninja-build \
+    pkg-config \
+    python3 \
+    python3-pip \
+    autoconf \
+    automake \
+    libtool \
+    gfortran \
+    vim \
+    sudo \
+    # CUDA Math Libraries (standard for scientific computing)
+    libcublas-dev-12-1 \
+    libcufft-dev-12-1 \
+    libcurand-dev-12-1 \
+    libcusolver-dev-12-1 \
+    libcusparse-dev-12-1 \
+    # MPI
+    openmpi-bin \
+    libopenmpi-dev \
+    # FFTW
+    libfftw3-dev \
+    libfftw3-mpi-dev \
+    # BLAS/LAPACK
+    libblas-dev \
+    liblapack-dev \
+    libopenblas-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------
 # Environment Variables for CUDA

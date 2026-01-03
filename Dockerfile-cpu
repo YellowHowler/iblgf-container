@@ -1,0 +1,144 @@
+# ------------------------------
+# C++ scientific env: Boost 1.68 + xtensor 0.24 + MPI + HDF5 + FFTW + BLAS
+# ------------------------------
+FROM ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG CORES=4
+
+LABEL maintainer="caroline@example.com"
+WORKDIR /workspace
+
+# ------------------------------
+# System packages
+# ------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    wget \
+    curl \
+    git \
+    cmake \
+    ninja-build \
+    pkg-config \
+    python3 \
+    python3-pip \
+    autoconf \
+    automake \
+    libtool \
+    gfortran \
+    vim \
+    # MPI
+    openmpi-bin \
+    libopenmpi-dev \
+    # FFTW
+    libfftw3-dev \
+    libfftw3-mpi-dev \
+    # HDF5 with MPI
+    # libhdf5-openmpi-dev \
+    # BLAS/LAPACK
+    libblas-dev \
+    liblapack-dev \
+    libopenblas-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ------------------------------
+# Boost 1.68
+# ------------------------------
+ENV BOOST_VERSION=1.68.0
+ENV BOOST_DIR=/workspace/boost_1_68_0
+ENV BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.68.0/boost_1_68_0.tar.gz/download
+ENV BOOST_PREFIX=/usr/local/${BOOST_DIR}
+
+# RUN cd /workspace \
+#     && wget -O boost.tar.gz $BOOST_URL \
+#     && tar -xzf boost.tar.gz \
+#     && cd $BOOST_DIR \
+#     && echo "using mpi ;" >> user-config.jam \
+#     && ./bootstrap.sh --prefix=$BOOST_PREFIX  --with-libraries=system,filesystem,serialization,mpi \
+#     && ./b2 -j${CORES} --with-mpi --target=shared,static --prefix=$BOOST_PREFIX \
+#     && ./b2 install\
+#     && cd /workspace && rm -rf $BOOST_DIR boost.tar.gz
+RUN cd /workspace \
+    && wget -O boost.tar.gz $BOOST_URL \
+    && tar -xzf boost.tar.gz \
+    && cd $BOOST_DIR \
+    && echo "using mpi ;" >> project-config.jam \
+    && echo "using mpi : /usr/bin/mpicxx ;">> project-config.jam \
+    && ./bootstrap.sh  --with-libraries=system,filesystem,serialization,mpi \
+    && echo "using mpi ;" >> project-config.jam \
+    && ./b2 -j${CORES} --with-mpi --target=shared,static \
+    && echo "using mpi ;" >> project-config.jam \
+    && ./b2 install \
+    && cd /workspace && rm -rf boost.tar.gz
+
+# # Ensure compilers and CMake find Boost
+# ENV BOOST_ROOT=$BOOST_PREFIX
+# # ENV CPLUS_INCLUDE_PATH=$BOOST_PREFIX/include:$CPLUS_INCLUDE_PATH
+# ENV LD_LIBRARY_PATH=$BOOST_PREFIX/lib:$LD_LIBRARY_PATH
+
+# ------------------------------
+# xtensor stack versions
+# ------------------------------
+ENV XTL_VERSION=0.7.5
+ENV XSIMD_VERSION=7.4.9
+# ENV XTENSOR_VERSION=0.24.6
+# ENV XTENSOR_BLAS_VERSION=0.20.0
+ENV XTENSOR_VERSION=0.23.10
+ENV XTENSOR_BLAS_VERSION=0.19.2
+RUN mkdir -p /workspace/src
+
+# xtl
+RUN cd /workspace/src \
+    && wget -q https://github.com/xtensor-stack/xtl/archive/refs/tags/${XTL_VERSION}.tar.gz -O xtl.tar.gz \
+    && tar -xzf xtl.tar.gz && cd xtl-${XTL_VERSION} \
+    && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTS=OFF \
+    && cmake --build . -j${CORES} --target install
+
+# xsimd
+RUN cd /workspace/src \
+    && wget -q https://github.com/xtensor-stack/xsimd/archive/refs/tags/${XSIMD_VERSION}.tar.gz -O xsimd.tar.gz \
+    && tar -xzf xsimd.tar.gz && cd xsimd-${XSIMD_VERSION} \
+    && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTS=OFF \
+    && cmake --build . -j${CORES} --target install
+
+# xtensor
+RUN cd /workspace/src \
+    && wget -q https://github.com/xtensor-stack/xtensor/archive/refs/tags/${XTENSOR_VERSION}.tar.gz -O xtensor.tar.gz \
+    && tar -xzf xtensor.tar.gz && cd xtensor-${XTENSOR_VERSION} \
+    && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTS=OFF \
+    && cmake --build . -j${CORES} --target install
+
+# xtensor-blas
+RUN cd /workspace/src \
+    && wget -q https://github.com/xtensor-stack/xtensor-blas/archive/refs/tags/${XTENSOR_BLAS_VERSION}.tar.gz -O xtensor-blas.tar.gz \
+    && tar -xzf xtensor-blas.tar.gz && cd xtensor-blas-${XTENSOR_BLAS_VERSION} \
+    && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTS=OFF \
+    && cmake --build . -j${CORES} --target install
+
+ENV HDF5_VERSION=1.12.2
+RUN cd /workspace \
+    && wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz \
+    && tar -xzf hdf5-${HDF5_VERSION}.tar.gz \
+    && cd hdf5-${HDF5_VERSION} \
+    && ./configure --enable-parallel --enable-shared --prefix=/usr/local CC=mpicc CXX=mpicxx \
+    && make -j${CORES} && make install \
+    && cd /workspace && rm -rf hdf5-${HDF5_VERSION}*
+
+
+RUN rm -rf /workspace/src
+
+# ------------------------------
+# Default workdir and user
+# ------------------------------
+RUN useradd -m cppuser && \
+    echo "cppuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER cppuser
+WORKDIR /workspace2
+RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
+CMD ["/bin/bash"]
