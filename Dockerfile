@@ -21,6 +21,8 @@ RUN if [ "$TARGET" = "cpu" ] ; then \
         pkg-config \
         python3 \
         python3-pip \
+        python3-venv \
+        python3-dev \
         autoconf \
         automake \
         libtool \
@@ -77,6 +79,11 @@ RUN if [ "$TARGET" = "cpu" ] ; then \
     else \
         echo "TARGET must be 'cpu' or 'gpu'" ; exit 1 ; \
     fi
+
+# ------------------------------
+# Python packages
+# ------------------------------
+RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # ------------------------------
 # Environment Variables for CUDA
