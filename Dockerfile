@@ -11,6 +11,7 @@ WORKDIR /workspace
 
 RUN if [ "$TARGET" = "cpu" ] ; then \
         apt-get update && apt-get install -y --no-install-recommends \
+        time \
         build-essential \
         ca-certificates \
         wget \
